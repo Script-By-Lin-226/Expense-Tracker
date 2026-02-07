@@ -37,8 +37,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize database
-initDatabase();
+// Initialize database (async)
+initDatabase().catch(console.error);
 
 // Routes
 app.get('/', (req, res) => {

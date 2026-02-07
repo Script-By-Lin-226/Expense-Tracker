@@ -3,7 +3,7 @@ import { getDatabase } from '../database/db.js';
 
 const SECRET_KEY = process.env.SECRET_KEY || 'your-secret-key-change-this-in-production';
 
-export function authenticateToken(req, res, next) {
+export async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -13,10 +13,13 @@ export function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-    const db = getDatabase();
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(decoded.sub);
+    const db = await getDatabase();
+    const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
+    stmt.bind([decoded.sub]);
+    const user = stmt.getAsObject();
+    stmt.free();
     
-    if (!user) {
+    if (!user.username) {
       return res.status(401).json({ detail: 'Invalid token' });
     }
 

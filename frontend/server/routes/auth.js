@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { getDatabase } from '../database/db.js';
+import { getDatabase, saveDatabase } from '../database/db.js';
 import { body, validationResult } from 'express-validator';
 
 const router = express.Router();
@@ -21,11 +21,15 @@ router.post('/register', [
     }
 
     const { username, email, password } = req.body;
-    const db = getDatabase();
+    const db = await getDatabase();
 
     // Check if username exists
-    const existingUser = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?').get(username, email);
-    if (existingUser) {
+    const stmt = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?');
+    stmt.bind([username, email]);
+    const existingUser = stmt.getAsObject();
+    stmt.free();
+    
+    if (existingUser.username || existingUser.email) {
       return res.status(400).json({ 
         detail: existingUser.username === username ? 'Username already registered' : 'Email already registered' 
       });
@@ -35,13 +39,22 @@ router.post('/register', [
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Insert user
-    const result = db.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)')
-      .run(username, email, passwordHash);
+    const insertStmt = db.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)');
+    insertStmt.run([username, email, passwordHash]);
+    insertStmt.free();
+    
+    await saveDatabase();
+
+    // Get the inserted user
+    const getStmt = db.prepare('SELECT id, username, email FROM users WHERE username = ?');
+    getStmt.bind([username]);
+    const user = getStmt.getAsObject();
+    getStmt.free();
 
     res.status(201).json({
-      id: result.lastInsertRowid,
-      username,
-      email
+      id: user.id,
+      username: user.username,
+      email: user.email
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -61,11 +74,15 @@ router.post('/login', [
     }
 
     const { username, password } = req.body;
-    const db = getDatabase();
+    const db = await getDatabase();
 
     // Find user
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-    if (!user) {
+    const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
+    stmt.bind([username]);
+    const user = stmt.getAsObject();
+    stmt.free();
+    
+    if (!user.username) {
       return res.status(401).json({ detail: 'Incorrect username or password' });
     }
 

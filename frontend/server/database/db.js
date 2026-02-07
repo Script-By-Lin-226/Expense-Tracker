@@ -1,7 +1,7 @@
-import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,21 +14,44 @@ if (!existsSync(dbDir)) {
   mkdirSync(dbDir, { recursive: true });
 }
 
+let SQL = null;
 let db = null;
 
-export function getDatabase() {
+async function initSQL() {
+  if (!SQL) {
+    // For Node.js, sql.js will use the bundled wasm file
+    SQL = await initSqlJs();
+  }
+  return SQL;
+}
+
+export async function getDatabase() {
   if (!db) {
-    db = new Database(dbPath);
-    db.pragma('foreign_keys = ON');
+    const SQLInstance = await initSQL();
+    
+    if (existsSync(dbPath)) {
+      const buffer = readFileSync(dbPath);
+      db = new SQLInstance.Database(buffer);
+    } else {
+      db = new SQLInstance.Database();
+    }
   }
   return db;
 }
 
-export function initDatabase() {
-  const database = getDatabase();
+export async function saveDatabase() {
+  if (db) {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    writeFileSync(dbPath, buffer);
+  }
+}
+
+export async function initDatabase() {
+  const database = await getDatabase();
   
   // Create users table
-  database.exec(`
+  database.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -38,7 +61,7 @@ export function initDatabase() {
   `);
 
   // Create expenses table
-  database.exec(`
+  database.run(`
     CREATE TABLE IF NOT EXISTS expenses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -53,7 +76,7 @@ export function initDatabase() {
   `);
 
   // Create income table
-  database.exec(`
+  database.run(`
     CREATE TABLE IF NOT EXISTS income (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -67,13 +90,14 @@ export function initDatabase() {
   `);
 
   // Create indexes
-  database.exec(`
+  database.run(`
     CREATE INDEX IF NOT EXISTS idx_expenses_user_id ON expenses(user_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
     CREATE INDEX IF NOT EXISTS idx_income_user_id ON income(user_id);
     CREATE INDEX IF NOT EXISTS idx_income_date ON income(date);
   `);
 
+  await saveDatabase();
   console.log('Database initialized successfully');
 }
 

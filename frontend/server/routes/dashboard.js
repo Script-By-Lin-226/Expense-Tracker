@@ -7,39 +7,69 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
+// Helper function to convert sql.js result to array of objects
+function rowsToObjects(rows) {
+  if (!rows || rows.length === 0) return [];
+  const result = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = {};
+    for (let j = 0; j < rows.columns.length; j++) {
+      row[rows.columns[j]] = rows.values[i][j];
+    }
+    result.push(row);
+  }
+  return result;
+}
+
 // Get dashboard stats
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
-    const db = getDatabase();
+    const db = await getDatabase();
     const userId = req.user.id;
     const now = new Date();
     const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
     const currentYear = now.getFullYear();
 
     // Total income
-    const totalIncomeResult = db.prepare('SELECT SUM(amount) as total FROM income WHERE user_id = ?')
-      .get(userId);
+    const incomeStmt = db.prepare('SELECT SUM(amount) as total FROM income WHERE user_id = ?');
+    incomeStmt.bind([userId]);
+    const totalIncomeResult = incomeStmt.getAsObject();
+    incomeStmt.free();
     const totalIncome = totalIncomeResult.total || 0;
 
     // Total expense
-    const totalExpenseResult = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE user_id = ?')
-      .get(userId);
+    const expenseStmt = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE user_id = ?');
+    expenseStmt.bind([userId]);
+    const totalExpenseResult = expenseStmt.getAsObject();
+    expenseStmt.free();
     const totalExpense = totalExpenseResult.total || 0;
 
     // Monthly expense
-    const monthlyExpenseResult = db.prepare(
+    const monthlyStmt = db.prepare(
       'SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND strftime("%m", date) = ? AND strftime("%Y", date) = ?'
-    ).get(userId, currentMonth, String(currentYear));
+    );
+    monthlyStmt.bind([userId, currentMonth, String(currentYear)]);
+    const monthlyExpenseResult = monthlyStmt.getAsObject();
+    monthlyStmt.free();
     const monthlyExpense = monthlyExpenseResult.total || 0;
 
     // Recent transactions
-    const recentExpenses = db.prepare(
+    const recentExpStmt = db.prepare(
       'SELECT id, title, amount, category, date FROM expenses WHERE user_id = ? ORDER BY date DESC LIMIT 5'
-    ).all(userId);
+    );
+    recentExpStmt.bind([userId]);
+    const recentExpRows = recentExpStmt.get();
+    recentExpStmt.free();
 
-    const recentIncome = db.prepare(
+    const recentIncStmt = db.prepare(
       'SELECT id, title, amount, category, date FROM income WHERE user_id = ? ORDER BY date DESC LIMIT 5'
-    ).all(userId);
+    );
+    recentIncStmt.bind([userId]);
+    const recentIncRows = recentIncStmt.get();
+    recentIncStmt.free();
+
+    const recentExpenses = rowsToObjects(recentExpRows);
+    const recentIncome = rowsToObjects(recentIncRows);
 
     const recentTransactions = [
       ...recentExpenses.map(exp => ({
@@ -74,10 +104,10 @@ router.get('/stats', (req, res) => {
 });
 
 // Get expense trend
-router.get('/expense-trend', (req, res) => {
+router.get('/expense-trend', async (req, res) => {
   try {
     const { year } = req.query;
-    const db = getDatabase();
+    const db = await getDatabase();
     const userId = req.user.id;
     
     let query = 'SELECT strftime("%m", date) as month, SUM(amount) as amount FROM expenses WHERE user_id = ?';
@@ -89,8 +119,12 @@ router.get('/expense-trend', (req, res) => {
     }
 
     query += ' GROUP BY month ORDER BY month';
-    const results = db.prepare(query).all(...params);
+    const stmt = db.prepare(query);
+    stmt.bind(params);
+    const rows = stmt.get();
+    stmt.free();
     
+    const results = rowsToObjects(rows);
     res.json(results.map(r => ({ month: parseInt(r.month), amount: r.amount || 0 })));
   } catch (error) {
     res.status(500).json({ detail: 'Failed to get expense trend' });
@@ -98,10 +132,10 @@ router.get('/expense-trend', (req, res) => {
 });
 
 // Get income vs expense
-router.get('/income-vs-expense', (req, res) => {
+router.get('/income-vs-expense', async (req, res) => {
   try {
     const { year } = req.query;
-    const db = getDatabase();
+    const db = await getDatabase();
     const userId = req.user.id;
     const targetYear = year || new Date().getFullYear();
 
@@ -109,13 +143,19 @@ router.get('/income-vs-expense', (req, res) => {
     for (let month = 1; month <= 12; month++) {
       const monthStr = String(month).padStart(2, '0');
       
-      const incomeResult = db.prepare(
+      const incomeStmt = db.prepare(
         'SELECT SUM(amount) as total FROM income WHERE user_id = ? AND strftime("%m", date) = ? AND strftime("%Y", date) = ?'
-      ).get(userId, monthStr, String(targetYear));
+      );
+      incomeStmt.bind([userId, monthStr, String(targetYear)]);
+      const incomeResult = incomeStmt.getAsObject();
+      incomeStmt.free();
       
-      const expenseResult = db.prepare(
+      const expenseStmt = db.prepare(
         'SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND strftime("%m", date) = ? AND strftime("%Y", date) = ?'
-      ).get(userId, monthStr, String(targetYear));
+      );
+      expenseStmt.bind([userId, monthStr, String(targetYear)]);
+      const expenseResult = expenseStmt.getAsObject();
+      expenseStmt.free();
 
       months.push({
         month,

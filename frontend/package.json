@@ -23,9 +23,8 @@
     "dotenv": "^16.3.1",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "better-sqlite3": "^9.2.2",
-    "express-validator": "^7.0.1",
-    "json2csv": "^6.1.0"
+    "sql.js": "^1.10.3",
+    "express-validator": "^7.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
