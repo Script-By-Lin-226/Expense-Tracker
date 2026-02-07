@@ -1,0 +1,6 @@
+#!/bin/bash
+# Start script for Render deployment
+
+# Run database migrations (tables are created automatically)
+# Start the server
+uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}

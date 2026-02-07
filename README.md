@@ -316,6 +316,20 @@ For production, you should set the following environment variables:
 
 ### Building for Production
 
+#### Quick Deploy to Render
+
+**Backend:**
+1. Push your code to GitHub
+2. Go to [Render Dashboard](https://dashboard.render.com)
+3. Create a new Web Service
+4. Connect your repository
+5. Set Root Directory: `backend`
+6. Build Command: `pip install -r requirements.txt`
+7. Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+8. Add environment variables (see RENDER_DEPLOYMENT.md for details)
+
+For detailed Render deployment instructions, see [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)
+
 #### Frontend Deployment
 
 1. **Set up environment variables:**
