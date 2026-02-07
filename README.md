@@ -270,6 +270,25 @@ Note: You can also create custom categories by typing them in the category field
 
 ## Environment Variables
 
+### Frontend Environment Variables
+
+Create a `.env` file in the `frontend` directory:
+
+```bash
+# Copy the example file
+cp frontend/env.example frontend/.env
+
+# Edit .env and set your API URL
+VITE_API_URL=http://localhost:8000/api
+```
+
+For production, set `VITE_API_URL` to your production backend URL:
+```bash
+VITE_API_URL=https://your-api-domain.com/api
+```
+
+### Backend Environment Variables
+
 For production, you should set the following environment variables:
 
 - `DATABASE_URL`: SQLite database path (default: `sqlite:///./expense_tracker.db`)
@@ -296,8 +315,56 @@ For production, you should set the following environment variables:
 - Frontend: `npm run dev`
 
 ### Building for Production
-- Frontend: `npm run build`
-- Backend: Use a production ASGI server like Gunicorn with Uvicorn workers
+
+#### Frontend Deployment
+
+1. **Set up environment variables:**
+   ```bash
+   cd frontend
+   # Copy the example env file
+   cp env.example .env
+   # Edit .env and set your production API URL
+   # VITE_API_URL=https://your-api-domain.com/api
+   ```
+
+2. **Build the frontend:**
+   ```bash
+   npm run build
+   ```
+   This creates a `dist` folder with production-ready files.
+
+3. **Deploy the `dist` folder:**
+   - You can deploy to any static hosting service (Vercel, Netlify, GitHub Pages, etc.)
+   - Or serve with a web server like Nginx or Apache
+
+#### Backend Deployment
+
+1. **Set up environment variables:**
+   - Set `DATABASE_URL` if using a different database
+   - Set `SECRET_KEY` for JWT tokens (change from default)
+
+2. **Use a production ASGI server:**
+   ```bash
+   # Install Gunicorn
+   pip install gunicorn
+   
+   # Run with Uvicorn workers
+   gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
+   ```
+
+3. **Or use Uvicorn directly:**
+   ```bash
+   uvicorn main:app --host 0.0.0.0 --port 8000
+   ```
+
+#### Environment Variables
+
+**Frontend (.env file in frontend directory):**
+- `VITE_API_URL`: Backend API URL (default: `http://localhost:8000/api`)
+
+**Backend:**
+- `DATABASE_URL`: Database connection string (default: SQLite)
+- `SECRET_KEY`: JWT secret key (change in production)
 
 ## License
 

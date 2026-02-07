@@ -84,7 +84,8 @@ This will create 50 sample expenses and 20 sample income entries for testing.
 ### CORS errors
 - Ensure backend CORS settings include frontend URL
 - Check that both servers are running
-- Verify API URL in `frontend/src/services/api.js`
+- Verify API URL in `frontend/src/services/api.js` or set `VITE_API_URL` in `.env` file
+- For production, set `CORS_ORIGINS` environment variable in backend
 
 ## Default Test Account
 After registration, you can use your own account. For testing with sample data:
