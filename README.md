@@ -1,6 +1,6 @@
 # Expense Tracker - Full Stack Web Application
 
-A comprehensive expense and income tracking application built with React (Vite) and FastAPI.
+A comprehensive expense and income tracking application built with React (Vite) and Node.js/Express.
 
 ## Features
 
@@ -48,11 +48,11 @@ A comprehensive expense and income tracking application built with React (Vite) 
 ## Tech Stack
 
 ### Backend
-- FastAPI
-- SQLAlchemy ORM
-- SQLite (local database)
+- Node.js/Express
+- Better-SQLite3 (SQLite database)
 - JWT Authentication
-- Python 3.8+
+- bcryptjs for password hashing
+- Express Validator
 
 ### Frontend
 - React 18
@@ -66,21 +66,18 @@ A comprehensive expense and income tracking application built with React (Vite) 
 
 ```
 Expense Tracker/
-├── backend/
-│   ├── main.py
-│   ├── database.py
-│   ├── models.py
-│   ├── schemas.py
-│   ├── crud.py
-│   ├── auth.py
-│   ├── requirements.txt
-│   └── routers/
-│       ├── auth.py
-│       ├── expense.py
-│       ├── income.py
-│       └── dashboard.py
-│
 └── frontend/
+    ├── server/
+    │   ├── index.js
+    │   ├── database/
+    │   │   └── db.js
+    │   ├── middleware/
+    │   │   └── auth.js
+    │   └── routes/
+    │       ├── auth.js
+    │       ├── expense.js
+    │       ├── income.js
+    │       └── dashboard.js
     ├── src/
     │   ├── components/
     │   │   ├── Dashboard.jsx
@@ -98,6 +95,8 @@ Expense Tracker/
     │   ├── App.jsx
     │   ├── main.jsx
     │   └── index.css
+    ├── data/
+    │   └── expense_tracker.db (auto-created)
     ├── package.json
     ├── vite.config.js
     └── tailwind.config.js
@@ -106,51 +105,10 @@ Expense Tracker/
 ## Setup Instructions
 
 ### Prerequisites
-- Python 3.8 or higher
 - Node.js 16 or higher
-- pip (Python package manager)
 - npm or yarn
 
-### Backend Setup
-
-1. **Navigate to backend directory:**
-   ```bash
-   cd backend
-   ```
-
-2. **Create a virtual environment (recommended):**
-   ```bash
-   python -m venv venv
-   ```
-
-3. **Activate virtual environment:**
-   - On Windows:
-     ```bash
-     venv\Scripts\activate
-     ```
-   - On macOS/Linux:
-     ```bash
-     source venv/bin/activate
-     ```
-
-4. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. **Database setup:**
-   - SQLite database will be created automatically as `expense_tracker.db` in the backend directory
-   - No additional database setup required!
-   - The tables will be created automatically when you start the server.
-
-7. **Start the backend server:**
-   ```bash
-   uvicorn main:app --reload
-   ```
-   The API will be available at `http://localhost:8000`
-   API documentation: `http://localhost:8000/docs`
-
-### Frontend Setup
+### Setup
 
 1. **Navigate to frontend directory:**
    ```bash
@@ -162,11 +120,33 @@ Expense Tracker/
    npm install
    ```
 
-3. **Start the development server:**
+3. **Start the development server (runs both frontend and backend):**
    ```bash
    npm run dev
    ```
-   The frontend will be available at `http://localhost:5173`
+   
+   This will start:
+   - Backend API at `http://localhost:8000`
+   - Frontend at `http://localhost:5173`
+
+4. **Database setup:**
+   - SQLite database will be created automatically in `frontend/data/expense_tracker.db`
+   - Tables are created automatically on first server start
+   - No additional setup required!
+
+### Alternative: Run separately
+
+If you want to run frontend and backend separately:
+
+**Backend only:**
+```bash
+npm run server
+```
+
+**Frontend only:**
+```bash
+npm run client
+```
 
 ## Usage
 
@@ -270,65 +250,67 @@ Note: You can also create custom categories by typing them in the category field
 
 ## Environment Variables
 
-### Frontend Environment Variables
-
 Create a `.env` file in the `frontend` directory:
 
 ```bash
-# Copy the example file
-cp frontend/env.example frontend/.env
+# Server Configuration
+PORT=8000
+SECRET_KEY=your-secret-key-change-this-in-production
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000,https://your-frontend-domain.com
 
-# Edit .env and set your API URL
+# Frontend API URL (optional, defaults to http://localhost:8000/api)
 VITE_API_URL=http://localhost:8000/api
 ```
 
-For production, set `VITE_API_URL` to your production backend URL:
-```bash
-VITE_API_URL=https://your-api-domain.com/api
-```
+### Environment Variables Explained
 
-### Backend Environment Variables
-
-For production, you should set the following environment variables:
-
-- `DATABASE_URL`: SQLite database path (default: `sqlite:///./expense_tracker.db`)
-- `SECRET_KEY`: JWT secret key (change in `backend/auth.py`)
+- `PORT`: Backend server port (default: 8000)
+- `SECRET_KEY`: JWT secret key for authentication (change in production!)
+- `CORS_ORIGINS`: Comma-separated list of allowed frontend origins
+- `VITE_API_URL`: Frontend API URL (for production deployments)
 
 ## Troubleshooting
 
-### Backend Issues
-- Verify all dependencies are installed
+### Server Issues
+- Verify all dependencies are installed: `npm install`
 - Check if port 8000 is available
-- Ensure you have write permissions in the backend directory (for SQLite database file)
-- If database issues occur, delete `expense_tracker.db` and restart the server to recreate it
+- Ensure you have write permissions in the `frontend/data` directory (for SQLite database)
+- If database issues occur, delete `frontend/data/expense_tracker.db` and restart the server
 
 ### Frontend Issues
-- Ensure backend is running on port 8000
+- Ensure backend server is running on port 8000
 - Clear browser cache
 - Check browser console for errors
-- Verify all npm packages are installed
+- Verify all npm packages are installed: `npm install`
+
+### Common Errors
+- **Port already in use**: Change `PORT` in `.env` file
+- **Database locked**: Close any other connections to the database
+- **Module not found**: Run `npm install` again
 
 ## Development
 
 ### Running in Development Mode
-- Backend: `uvicorn main:app --reload`
-- Frontend: `npm run dev`
+- Both servers: `npm run dev` (runs frontend and backend together)
+- Backend only: `npm run server`
+- Frontend only: `npm run client`
 
 ### Building for Production
 
-#### Quick Deploy to Render
+#### Deploy to Vercel/Netlify (Recommended)
 
-**Backend:**
+**Full Stack Deployment:**
 1. Push your code to GitHub
-2. Go to [Render Dashboard](https://dashboard.render.com)
-3. Create a new Web Service
-4. Connect your repository
-5. Set Root Directory: `backend`
-6. Build Command: `pip install -r requirements.txt`
-7. Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-8. Add environment variables (see RENDER_DEPLOYMENT.md for details)
+2. Connect repository to Vercel or Netlify
+3. Set build command: `npm run build`
+4. Set output directory: `dist`
+5. Add environment variables:
+   - `VITE_API_URL`: Your backend API URL
+   - Or deploy backend separately and use that URL
 
-For detailed Render deployment instructions, see [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)
+**Backend Deployment (Separate):**
+- Deploy backend to Railway, Render, or similar
+- Update `VITE_API_URL` in frontend environment variables
 
 #### Frontend Deployment
 
@@ -373,12 +355,11 @@ For detailed Render deployment instructions, see [RENDER_DEPLOYMENT.md](RENDER_D
 
 #### Environment Variables
 
-**Frontend (.env file in frontend directory):**
-- `VITE_API_URL`: Backend API URL (default: `http://localhost:8000/api`)
-
-**Backend:**
-- `DATABASE_URL`: Database connection string (default: SQLite)
-- `SECRET_KEY`: JWT secret key (change in production)
+**All in `.env` file in frontend directory:**
+- `PORT`: Backend server port (default: `8000`)
+- `SECRET_KEY`: JWT secret key (change in production!)
+- `CORS_ORIGINS`: Comma-separated allowed origins
+- `VITE_API_URL`: Frontend API URL (default: `http://localhost:8000/api`)
 
 ## License
 

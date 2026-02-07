@@ -13,7 +13,7 @@ services:
           name: expense-tracker-db
           property: connectionString
       - key: CORS_ORIGINS
-        value: https://your-frontend-app.onrender.com
+        value: http://localhost:5173,http://localhost:3000,https://expense-tracker-liard-mu-63.vercel.app,https://disagreeable-emelia-cantorous.ngrok-free.dev
       - key: SECRET_KEY
         generateValue: true
     healthCheckPath: /

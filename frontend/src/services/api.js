@@ -40,14 +40,7 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
-  login: (data) => {
-    const formData = new FormData();
-    formData.append('username', data.username);
-    formData.append('password', data.password);
-    return api.post('/auth/login', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
+  login: (data) => api.post('/auth/login', data),
 };
 
 // Expense API
