@@ -115,8 +115,10 @@ router.post('/', [
     
     await saveDatabase();
 
-    // Get the inserted expense
-    const getStmt = db.prepare('SELECT * FROM expenses WHERE id = (SELECT last_insert_rowid())');
+    // Get the inserted expense - sql.js doesn't support last_insert_rowid() directly
+    // Use a query to get the most recent expense for this user
+    const getStmt = db.prepare('SELECT * FROM expenses WHERE user_id = ? ORDER BY id DESC LIMIT 1');
+    getStmt.bind([req.user.id]);
     const expense = getStmt.getAsObject();
     getStmt.free();
 
@@ -136,7 +138,7 @@ router.put('/:id', async (req, res) => {
     const expense = checkStmt.getAsObject();
     checkStmt.free();
     
-    if (!expense.id) {
+    if (expense.id === undefined) {
       return res.status(404).json({ detail: 'Expense not found' });
     }
 
@@ -178,14 +180,21 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const db = await getDatabase();
-    const stmt = db.prepare('DELETE FROM expenses WHERE id = ? AND user_id = ?');
-    stmt.run([req.params.id, req.user.id]);
-    const changes = db.exec('SELECT changes()')[0];
-    stmt.free();
     
-    if (!changes || changes.values[0][0] === 0) {
+    // First check if expense exists
+    const checkStmt = db.prepare('SELECT id FROM expenses WHERE id = ? AND user_id = ?');
+    checkStmt.bind([req.params.id, req.user.id]);
+    const exists = checkStmt.getAsObject();
+    checkStmt.free();
+    
+    if (exists.id === undefined) {
       return res.status(404).json({ detail: 'Expense not found' });
     }
+    
+    // Delete the expense
+    const stmt = db.prepare('DELETE FROM expenses WHERE id = ? AND user_id = ?');
+    stmt.run([req.params.id, req.user.id]);
+    stmt.free();
     
     await saveDatabase();
     res.status(204).send();

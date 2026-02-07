@@ -82,7 +82,7 @@ router.get('/:id', async (req, res) => {
     const income = stmt.getAsObject();
     stmt.free();
     
-    if (!income.id) {
+    if (income.id === undefined) {
       return res.status(404).json({ detail: 'Income not found' });
     }
     res.json(income);
@@ -115,8 +115,10 @@ router.post('/', [
     
     await saveDatabase();
 
-    // Get the inserted income
-    const getStmt = db.prepare('SELECT * FROM income WHERE id = (SELECT last_insert_rowid())');
+    // Get the inserted income - sql.js doesn't support last_insert_rowid() directly
+    // Use a query to get the most recent income for this user
+    const getStmt = db.prepare('SELECT * FROM income WHERE user_id = ? ORDER BY id DESC LIMIT 1');
+    getStmt.bind([req.user.id]);
     const income = getStmt.getAsObject();
     getStmt.free();
 
@@ -136,7 +138,7 @@ router.put('/:id', async (req, res) => {
     const income = checkStmt.getAsObject();
     checkStmt.free();
     
-    if (!income.id) {
+    if (income.id === undefined) {
       return res.status(404).json({ detail: 'Income not found' });
     }
 
@@ -177,14 +179,21 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const db = await getDatabase();
-    const stmt = db.prepare('DELETE FROM income WHERE id = ? AND user_id = ?');
-    stmt.run([req.params.id, req.user.id]);
-    const changes = db.exec('SELECT changes()')[0];
-    stmt.free();
     
-    if (!changes || changes.values[0][0] === 0) {
+    // First check if income exists
+    const checkStmt = db.prepare('SELECT id FROM income WHERE id = ? AND user_id = ?');
+    checkStmt.bind([req.params.id, req.user.id]);
+    const exists = checkStmt.getAsObject();
+    checkStmt.free();
+    
+    if (exists.id === undefined) {
       return res.status(404).json({ detail: 'Income not found' });
     }
+    
+    // Delete the income
+    const stmt = db.prepare('DELETE FROM income WHERE id = ? AND user_id = ?');
+    stmt.run([req.params.id, req.user.id]);
+    stmt.free();
     
     await saveDatabase();
     res.status(204).send();

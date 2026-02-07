@@ -29,9 +29,11 @@ router.post('/register', [
     const existingUser = stmt.getAsObject();
     stmt.free();
     
-    if (existingUser.username || existingUser.email) {
+    // Check if user exists (sql.js returns object with undefined values if not found)
+    if (existingUser.username !== undefined || existingUser.email !== undefined) {
+      const isUsernameMatch = existingUser.username === username;
       return res.status(400).json({ 
-        detail: existingUser.username === username ? 'Username already registered' : 'Email already registered' 
+        detail: isUsernameMatch ? 'Username already registered' : 'Email already registered' 
       });
     }
 
@@ -50,6 +52,10 @@ router.post('/register', [
     getStmt.bind([username]);
     const user = getStmt.getAsObject();
     getStmt.free();
+
+    if (user.id === undefined) {
+      return res.status(500).json({ detail: 'Failed to retrieve created user' });
+    }
 
     res.status(201).json({
       id: user.id,
@@ -82,7 +88,7 @@ router.post('/login', [
     const user = stmt.getAsObject();
     stmt.free();
     
-    if (!user.username) {
+    if (user.username === undefined) {
       return res.status(401).json({ detail: 'Incorrect username or password' });
     }
 
