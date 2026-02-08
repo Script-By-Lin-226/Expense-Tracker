@@ -41,19 +41,39 @@ app.use(express.urlencoded({ extended: true }));
 initDatabase().catch(console.error);
 
 // Routes
-app.get('/', (req, res) => {
-  res.json({ message: 'Expense Tracker API' });
+app.get(['/', '/api'], (req, res) => {
+  res.json({ message: 'Expense Tracker API Is Running' });
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/income', incomeRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    url: req.url
+  });
+});
+
+// Support both /api/PREFIX and /PREFIX to handle various Hosting/Proxy setups
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/expenses', '/expenses'], expenseRoutes);
+app.use(['/api/income', '/income'], incomeRoutes);
+app.use(['/api/dashboard', '/dashboard'], dashboardRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ detail: 'Internal server error' });
+  res.status(500).json({ detail: 'Internal server error', error: err.message });
+});
+
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({
+    detail: 'Route not found',
+    path: req.path,
+    url: req.url,
+    method: req.method
+  });
 });
 
 if (process.argv[1] === __filename) {
