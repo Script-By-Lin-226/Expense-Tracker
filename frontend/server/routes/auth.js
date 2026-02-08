@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { getDatabase, saveDatabase } from '../database/db.js';
+import { query } from '../database/db.js';
 import { body, validationResult } from 'express-validator';
 
 const router = express.Router();
@@ -21,19 +21,18 @@ router.post('/register', [
     }
 
     const { username, email, password } = req.body;
-    const db = await getDatabase();
 
     // Check if username exists
-    const stmt = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?');
-    stmt.bind([username, email]);
-    const existingUser = stmt.getAsObject();
-    stmt.free();
-    
-    // Check if user exists (sql.js returns object with undefined values if not found)
-    if (existingUser.username !== undefined || existingUser.email !== undefined) {
+    const { rows: existingUsers } = await query(
+      'SELECT * FROM users WHERE username = ? OR email = ?',
+      [username, email]
+    );
+
+    if (existingUsers.length > 0) {
+      const existingUser = existingUsers[0];
       const isUsernameMatch = existingUser.username === username;
-      return res.status(400).json({ 
-        detail: isUsernameMatch ? 'Username already registered' : 'Email already registered' 
+      return res.status(400).json({
+        detail: isUsernameMatch ? 'Username already registered' : 'Email already registered'
       });
     }
 
@@ -41,20 +40,20 @@ router.post('/register', [
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Insert user
-    const insertStmt = db.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)');
-    insertStmt.run([username, email, passwordHash]);
-    insertStmt.free();
-    
-    await saveDatabase();
+    await query(
+      'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+      [username, email, passwordHash]
+    );
 
     // Get the inserted user
-    const getStmt = db.prepare('SELECT id, username, email FROM users WHERE username = ?');
-    getStmt.bind([username]);
-    const user = getStmt.getAsObject();
-    getStmt.free();
+    const { rows: newUsers } = await query(
+      'SELECT id, username, email FROM users WHERE username = ?',
+      [username]
+    );
+    const user = newUsers[0];
 
-    if (user.id === undefined) {
-      return res.status(500).json({ detail: 'Failed to retrieve created user' });
+    if (!user) {
+      return res.status(500).json({ detail: 'Failed to create user' });
     }
 
     res.status(201).json({
@@ -80,15 +79,12 @@ router.post('/login', [
     }
 
     const { username, password } = req.body;
-    const db = await getDatabase();
 
     // Find user
-    const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-    stmt.bind([username]);
-    const user = stmt.getAsObject();
-    stmt.free();
-    
-    if (user.username === undefined) {
+    const { rows } = await query('SELECT * FROM users WHERE username = ?', [username]);
+    const user = rows[0];
+
+    if (!user) {
       return res.status(401).json({ detail: 'Incorrect username or password' });
     }
 
@@ -100,7 +96,7 @@ router.post('/login', [
 
     // Generate token
     const token = jwt.sign(
-      { sub: user.username },
+      { sub: user.username, id: user.id }, // Added id to token payload for convenience
       SECRET_KEY,
       { expiresIn: `${ACCESS_TOKEN_EXPIRE_MINUTES}m` }
     );

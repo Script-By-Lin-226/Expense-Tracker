@@ -24,7 +24,8 @@
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "sql.js": "^1.10.3",
-    "express-validator": "^7.0.1"
+    "express-validator": "^7.0.1",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",

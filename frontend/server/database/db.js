@@ -1,25 +1,11 @@
 import initSqlJs from 'sql.js';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const dbPath = join(__dirname, '../../data/expense_tracker.db');
-const dbDir = join(__dirname, '../../data');
-
-// Ensure data directory exists
-if (!existsSync(dbDir)) {
-  mkdirSync(dbDir, { recursive: true });
-}
+import bcrypt from 'bcryptjs';
 
 let SQL = null;
 let db = null;
 
 async function initSQL() {
   if (!SQL) {
-    // For Node.js, sql.js will use the bundled wasm file
     SQL = await initSqlJs();
   }
   return SQL;
@@ -28,28 +14,13 @@ async function initSQL() {
 export async function getDatabase() {
   if (!db) {
     const SQLInstance = await initSQL();
-    
-    if (existsSync(dbPath)) {
-      const buffer = readFileSync(dbPath);
-      db = new SQLInstance.Database(buffer);
-    } else {
-      db = new SQLInstance.Database();
-    }
+    db = new SQLInstance.Database(); // In-memory
+    await initTables(db);
   }
   return db;
 }
 
-export async function saveDatabase() {
-  if (db) {
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    writeFileSync(dbPath, buffer);
-  }
-}
-
-export async function initDatabase() {
-  const database = await getDatabase();
-  
+async function initTables(database) {
   // Create users table
   database.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -97,13 +68,51 @@ export async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_income_date ON income(date);
   `);
 
-  await saveDatabase();
-  console.log('Database initialized successfully');
+  // Seed User
+  const hashedPassword = await bcrypt.hash('linlin', 10);
+  console.log('Seeding database with default user...');
+  try {
+    database.run(
+      'INSERT OR IGNORE INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+      ['linlinaung', 'linlinaung@gmail.com', hashedPassword]
+    );
+  } catch (e) {
+    console.log('User already exists or error seeding:', e);
+  }
+
+  console.log('In-memory Database initialized successfully');
 }
 
-export function closeDatabase() {
-  if (db) {
-    db.close();
-    db = null;
+export async function initDatabase() {
+  await getDatabase();
+}
+
+// Wrapper to mimic pg's query interface but for SQLite
+export async function query(text, params = []) {
+  const database = await getDatabase();
+
+  // Normalize params: Postgres uses $1, $2. SQLite uses ?.
+  // We will assume the ROUTES are converted back to ? syntax.
+  // But if we want to be robust, we could replace $n with ? here.
+  // Let's rely on routes correct syntax for better control.
+
+  try {
+    const stmt = database.prepare(text);
+    stmt.bind(params);
+
+    const rows = [];
+    while (stmt.step()) {
+      rows.push(stmt.getAsObject());
+    }
+
+    // Check if it was an INSERT/UPDATE/DELETE to return rowCount?
+    // sql.js doesn't give rowCount easily for UPDATE/DELETE.
+    // For INSERT, valid rows might be returned if RETURNING is used.
+
+    stmt.free();
+    return { rows, rowCount: rows.length }; // Approximation
+  } catch (error) {
+    console.error('SQL Error:', error, 'Query:', text);
+    throw error;
   }
 }

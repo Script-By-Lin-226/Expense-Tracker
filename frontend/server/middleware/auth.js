@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { getDatabase } from '../database/db.js';
+import { query } from '../database/db.js';
 
 const SECRET_KEY = process.env.SECRET_KEY || 'your-secret-key-change-this-in-production';
 
@@ -13,13 +13,10 @@ export async function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-    const db = await getDatabase();
-    const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-    stmt.bind([decoded.sub]);
-    const user = stmt.getAsObject();
-    stmt.free();
-    
-    if (!user.username) {
+    const { rows } = await query('SELECT * FROM users WHERE username = $1', [decoded.sub]);
+    const user = rows[0];
+
+    if (!user) {
       return res.status(401).json({ detail: 'Invalid token' });
     }
 

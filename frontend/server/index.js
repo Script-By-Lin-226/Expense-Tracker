@@ -25,10 +25,10 @@ const PORT = process.env.PORT || 8000;
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
   : [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://expense-tracker-liard-mu-63.vercel.app'
-    ];
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://expense-tracker-liard-mu-63.vercel.app'
+  ];
 
 app.use(cors({
   origin: corsOrigins,
@@ -56,8 +56,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ detail: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (process.argv[1] === __filename) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
